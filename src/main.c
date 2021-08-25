@@ -12,59 +12,37 @@
 
 typedef struct timespec tspec;
 
+#define DarkBlack "\033[30m"
+#define DarkRed "\033[31m"
+#define DarkGreen "\033[32m"
+#define DarkYellow "\033[33m"
+#define DarkBlue "\033[34m"
+#define DarkMagenta "\033[35m"
+#define DarkCyan "\033[36m"
+#define DarkWhite "\033[37m"
+#define LightBlack "\033[90m"
+#define LightRed "\033[91m"
+#define LightGreen "\033[92m"
+#define LightYellow "\033[93m"
+#define LightBlue "\033[94m"
+#define LightMagenta "\033[95m"
+#define LightCyan "\033[96m"
+#define LightWhite "\033[97m"
+#define End "\033[0;0m"
+
+
+static int argv_set(char *args, char **argv);
+static char **argv_parse(char *args, size_t *argc);
+static void argv_free(char **argv);
+
+
+
+void handle_winch(int sig);
 
 wchar_t FILLEDBLOCK=L'█';
 wchar_t EMPTYBLOCK=L'░';
-typedef struct {
-  tspec start;
-  tspec end;
-} elapsed_counter_t;
-
-static int argv_set(char *args, char **argv)
-{
-  int count = 0;
-
-  while (isspace(*args)) ++args;
-  while (*args) {
-    if (argv) argv[count] = args;
-    while (*args && !isspace(*args)) ++args;
-    if (argv && *args) *args++ = '\0';
-    while (isspace(*args)) ++args;
-    count++;
-  }
-  return count;
-}
-
-char **argv_parse(char *args, size_t *argc)
-{
-  char **argv = NULL;
-
-  if (args && *args
-      && (args = strdup(args))
-      && (*argc = argv_set(args,NULL))
-      && (argv = malloc((*argc+1) * sizeof(char *)))) {
-    *argv++ = args;
-    *argc = argv_set(args,argv);
-  }
-
-  if (args && !argv) free(args);
-  return argv;
-}
-
-void argv_free(char **argv)
-{
-  if (argv) {
-    free(argv[-1]);
-    free(argv-1);
-  } 
-}
-
 struct winsize w;
 long times=0;
-
-void handle_winch(int sig){
-  ioctl(STDOUT_FILENO, TIOCGWINSZ, &w); // term width height
-}
 
 void progress_bar(size_t i);
 
@@ -75,7 +53,7 @@ int main (int argc, char **argv){
   }
   setlocale(LC_ALL, ""); // progress bar unicode 
   ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
-  signal(SIGWINCH, handle_winch);
+  /* signal(SIGWINCH, handle_winch); */
 
   size_t lim_c1;
   char **c1 = argv_parse(argv[argc-1], &lim_c1);
@@ -120,9 +98,10 @@ int main (int argc, char **argv){
     if(c1range[i]>max) max=c1range[i];
   }
 
-  printf("Took %.2f ms\n", (total/1000));
-  printf("Average %.2f ms\n", (total/times)/1000);
-  printf("min:%.2f\nmax:%.2f\n", min/1000, max/1000);
+  printf("Took %s%.2f%s ms\n", DarkCyan, (total/1000), End);
+  printf("Average %s%.2f%s ms\n", LightCyan, (total/times)/1000, End);
+  printf("min: %s%.2f%s\n", LightMagenta, min/1000, End);
+  printf("max: %s%.2f%s\n", DarkMagenta, max/1000, End);
 
   return 0;
 }
@@ -134,11 +113,57 @@ void progress_bar(size_t i){
 
   putchar('\r');
   fflush(stdout);
-  long tsa=((double)i/times)*w.ws_col;
-  for(int i=0;i<=tsa+1;i++){
+  i+=1;
+  long tsa=(((double)i/times))*w.ws_col;
+  for(i=0;i<tsa;i++){
     putwchar(FILLEDBLOCK);
   }
-  for(int i=tsa;i<w.ws_col-3;i++){
+  for(i=tsa;i<w.ws_col;i++){
     putwchar(EMPTYBLOCK);
   }
 }
+
+static int argv_set(char *args, char **argv)
+{
+  int count = 0;
+
+  while (isspace(*args)) ++args;
+  while (*args) {
+    if (argv) argv[count] = args;
+    while (*args && !isspace(*args)) ++args;
+    if (argv && *args) *args++ = '\0';
+    while (isspace(*args)) ++args;
+    count++;
+  }
+  return count;
+}
+
+static char **argv_parse(char *args, size_t *argc)
+{
+  char **argv = NULL;
+
+  if (args && *args
+      && (args = strdup(args))
+      && (*argc = argv_set(args,NULL))
+      && (argv = malloc((*argc+1) * sizeof(char *)))) {
+    *argv++ = args;
+    *argc = argv_set(args,argv);
+  }
+
+  if (args && !argv) free(args);
+  return argv;
+}
+
+static void argv_free(char **argv)
+{
+  if (argv) {
+    free(argv[-1]);
+    free(argv-1);
+  } 
+}
+
+void handle_winch(int sig){
+  ioctl(STDOUT_FILENO, TIOCGWINSZ, &w); // term width height
+}
+
+
