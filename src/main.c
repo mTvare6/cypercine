@@ -63,8 +63,43 @@ typedef struct {
 } command_t;
 
 void progress_bar(size_t i);
+float compare (const void * a, const void * b) {
+  return ( *(float*)a - *(float*)b );
+}
+
+void quicksort(double *x,double first,double last)
+{   int pivot, j, i;
+  double temp;
+
+  if(first<last){
+    pivot=first;
+    i=first;
+    j=last;
+
+
+    while(i<j){
+      while(x[i]<=x[pivot]&&i<last)
+        i++;
+      while(x[j]>x[pivot])
+        j--;
+      if(i<j){
+        temp=x[i];
+        x[i]=x[j];
+        x[j]=temp;
+      }
+    }
+
+    temp=x[pivot];
+    x[pivot]=x[j];
+    x[j]=temp;
+    quicksort(x,first,j-1);
+    quicksort(x,j+1,last);
+  }
+}
 
 int main (int argc, char **argv){
+
+  if(argc<2){ printf("Usage: cyperfine 100 'ls -lAth'"); exit(0); }
 
   if(setpgid(0,0)) {
     perror("failed to make proc group");
@@ -82,6 +117,7 @@ int main (int argc, char **argv){
   times = strtol(argv[1], NULL, 10);
   times=(times==0)?1:times; // if ascii string or 0, set to 1
 
+  double freq[times];
   double ct1, total;
   pid_t pid;
   double c1range[times]; // for mean and mode
@@ -108,18 +144,33 @@ int main (int argc, char **argv){
   }
   if(pid==0) return 0;
 
-  printf("\r%*s", w.ws_col, "");
+  printf("\r%*s\r", w.ws_col, "");
   argv_free(c1);
 
   double min=sizeof(double),max=0;
+
+  /* quicksort(c1range, 0, times-1); */
+  /* min=c1range[0]; */
+  /* max=c1range[times-1]; */
+
+  double mode=c1range[0], next;
+  size_t curcount=1, nextcount;
   for(int i=0;i<times;i++){
     if(c1range[i]<min) min=c1range[i];
     if(c1range[i]>max) max=c1range[i];
+    if(c1range[i]==mode) curcount++;
+    else if(c1range[i]==next) nextcount++;
+    else next=c1range[i];
+    if(nextcount>curcount){
+      mode=c1range[i];
+      curcount=nextcount;
+      nextcount=0;
+    }
   }
 
   printf("Took %s%.2f%s ms\n", DarkCyan, (total/1000), End);
   printf("%*s", 2, "");
-  printf("Time (%smean%s … %smode%s):\t%s%.2f%s … %s%.2f%s\n", LightGreen, End, DarkGreen, End, LightGreen,  (total/times)/1000, End, DarkGreen, 0.f, End);
+  printf("Time (%smean%s … %smode%s):\t%s%.2f%s … %s%.2f%s\n", LightGreen, End, DarkGreen, End, LightGreen,  (total/times)/1000, End, DarkGreen, mode/1000, End);
   printf("%*s", 2, "");
   printf("Range (%smin%s … %smax%s):\t%s%.2f%s … %s%.2f%s\n", LightMagenta, End, DarkMagenta, End, LightMagenta,  min/1000, End, DarkMagenta, max/1000, End);
 
@@ -130,7 +181,6 @@ int main (int argc, char **argv){
 
 
 void progress_bar(size_t i){
-
   putchar('\r');
   fflush(stdout);
   i+=1;
