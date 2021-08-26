@@ -12,28 +12,37 @@
 
 typedef struct timespec tspec;
 
-#define DarkBlack "\033[30m"
-#define DarkRed "\033[31m"
-#define DarkGreen "\033[32m"
-#define DarkYellow "\033[33m"
-#define DarkBlue "\033[34m"
-#define DarkMagenta "\033[35m"
-#define DarkCyan "\033[36m"
-#define DarkWhite "\033[37m"
-#define LightBlack "\033[90m"
-#define LightRed "\033[91m"
-#define LightGreen "\033[92m"
-#define LightYellow "\033[93m"
-#define LightBlue "\033[94m"
+
+// very epic spacing thanks to vim easy align
+#define End          "\033[0;0m"
+#define Bold         "\033[1m"
+#define Dull         "\033[2m"
+#define Italic       "\033[3m"
+#define Underline    "\033[4m"
+#define Inverted     "\033[7m" // or reverse according to wikipedia
+
+#define DarkBlack    "\033[30m"
+#define DarkRed      "\033[31m"
+#define DarkGreen    "\033[32m"
+#define DarkYellow   "\033[33m"
+#define DarkBlue     "\033[34m"
+#define DarkMagenta  "\033[35m"
+#define DarkCyan     "\033[36m"
+#define DarkWhite    "\033[37m"
+#define LightBlack   "\033[90m"
+#define LightRed     "\033[91m"
+#define LightGreen   "\033[92m"
+#define LightYellow  "\033[93m"
+#define LightBlue    "\033[94m"
 #define LightMagenta "\033[95m"
-#define LightCyan "\033[96m"
-#define LightWhite "\033[97m"
-#define End "\033[0;0m"
+#define LightCyan    "\033[96m"
+#define LightWhite   "\033[97m"
 
 
 static int argv_set(char *args, char **argv);
 static char **argv_parse(char *args, size_t *argc);
 static void argv_free(char **argv);
+
 
 
 
@@ -43,6 +52,15 @@ wchar_t FILLEDBLOCK=L'█';
 wchar_t EMPTYBLOCK=L'░';
 struct winsize w;
 long times=0;
+
+typedef struct {
+  char **argv;
+  tspec start, end;
+  size_t lim;
+  double timebuf, total;
+  double min, max;
+  double range[];
+} command_t;
 
 void progress_bar(size_t i);
 
@@ -67,6 +85,7 @@ int main (int argc, char **argv){
   double ct1, total;
   pid_t pid;
   double c1range[times]; // for mean and mode
+  printf("%sBenchmark #%d%s, %s\n", Bold, 1, End, argv[argc-1]);
 
   for(int i=0;i<times; i++){
     pid = fork();
@@ -89,7 +108,7 @@ int main (int argc, char **argv){
   }
   if(pid==0) return 0;
 
-  putchar('\n');
+  printf("\r%*s", w.ws_col, "");
   argv_free(c1);
 
   double min=sizeof(double),max=0;
@@ -99,9 +118,10 @@ int main (int argc, char **argv){
   }
 
   printf("Took %s%.2f%s ms\n", DarkCyan, (total/1000), End);
-  printf("Average %s%.2f%s ms\n", LightCyan, (total/times)/1000, End);
-  printf("min: %s%.2f%s\n", LightMagenta, min/1000, End);
-  printf("max: %s%.2f%s\n", DarkMagenta, max/1000, End);
+  printf("%*s", 2, "");
+  printf("Time (%smean%s … %smode%s):\t%s%.2f%s … %s%.2f%s\n", LightGreen, End, DarkGreen, End, LightGreen,  (total/times)/1000, End, DarkGreen, 0.f, End);
+  printf("%*s", 2, "");
+  printf("Range (%smin%s … %smax%s):\t%s%.2f%s … %s%.2f%s\n", LightMagenta, End, DarkMagenta, End, LightMagenta,  min/1000, End, DarkMagenta, max/1000, End);
 
   return 0;
 }
