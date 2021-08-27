@@ -2,24 +2,25 @@
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <stdlib.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
 #include <errno.h>
 #include <wchar.h>
 #include <locale.h>
+#include <stdbool.h>
 #include "argv.h"
 
 typedef struct timespec tspec;
 
 
-// very epic spacing thanks to vim easy align
 #define End          "\033[0;0m"
 #define Bold         "\033[1m"
 #define Dull         "\033[2m"
 #define Italic       "\033[3m"
 #define Underline    "\033[4m"
-#define Inverted     "\033[7m" // or reverse according to wikipedia
+#define Inverted     "\033[7m"
 
 #define DarkBlack    "\033[30m"
 #define DarkRed      "\033[31m"
@@ -38,25 +39,22 @@ typedef struct timespec tspec;
 #define LightCyan    "\033[96m"
 #define LightWhite   "\033[97m"
 
-
-
-void handle_winch(int sig);
-
 typedef struct {
-  char *cmd;
+  char *execstr;
   size_t limit;
   double *range;
   double min, max, mode, total;
 } command_t;
 
-void progress_bar(size_t i);
-void new_cmd(command_t *cmd);
-wchar_t FILLEDBLOCK=L'█';
-wchar_t EMPTYBLOCK=L'░';
+
+const wchar_t FILLEDBLOCK=L'█';
+const wchar_t EMPTYBLOCK=L'░';
+const bool nostdout=true;
 struct winsize w;
 long times=0, iterations=1;
 
-
+void progress_bar(size_t i);
+void new_cmd(command_t *cmd, char *execstr);
 void handle_winch(int sig){
   ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
 }
@@ -77,8 +75,7 @@ int main (int argc, char **argv){
 
 
   command_t commands[1];
-  commands[iterations-1].cmd=argv[argc-1];
-  new_cmd(&commands[0]);
+  new_cmd(&commands[0], argv[argc-1]);
 
 
   return 0;
@@ -101,29 +98,52 @@ void progress_bar(size_t i){
 }
 
 
-void new_cmd(command_t *cmd){
-  char **parsed_argv = argv_parse(cmd->cmd, &cmd->limit);
+void new_cmd(command_t *cmd, char *execstr){
+  cmd->execstr = execstr;
+  char **parsed_argv = argv_parse(cmd->execstr, &cmd->limit);
   tspec t1, t2;
 
   double timebuf;
   pid_t pid;
   cmd->range = malloc(times * sizeof(*cmd->range));
 
-  printf("%sBenchmark #%d%s, %s\n", Bold, 1, End, cmd->cmd);
+  printf("%sBenchmark #%d%s, %s\n", Bold, 1, End, cmd->execstr);
 
   for(int i=0;i<times; i++){
     pid = fork();
     if(pid==-1) perror("fork()");
     else if(pid==0){
-      close(STDOUT_FILENO);
-      close(STDERR_FILENO);
-      execvp(parsed_argv[0], parsed_argv);
+      if(nostdout){
+        close(STDOUT_FILENO);
+        close(STDERR_FILENO);
+      }
+      if(cmd->limit!=1){
+        execvp(parsed_argv[0], parsed_argv);
+      }
+      else{
+        execlp(parsed_argv[0], parsed_argv[0], NULL);
+      }
+      perror("exec failed");
+      exit(1);
     }
     else{
       int stat;
       clock_gettime(CLOCK_REALTIME, &t1);
-      progress_bar(i);
-      waitpid(pid, &stat, 0);
+      if(waitpid(pid, &stat, 0)<0){
+        perror("Unable to wait for proc");
+        exit(1);
+      }
+    if (WIFEXITED(stat)) {
+      if(WEXITSTATUS(stat)!=0){
+        printf("%s: exited with status %d", cmd->execstr, WEXITSTATUS(stat));
+        exit(1);
+      }
+    } else {
+        printf("command exited abnormally\n");
+        exit(0);
+    }
+      if(nostdout)
+        progress_bar(i);
       clock_gettime(CLOCK_REALTIME, &t2);
       timebuf = (t2.tv_sec - t1.tv_sec) * 1e6 + (t2.tv_nsec - t1.tv_nsec) / 1e3;
       cmd->range[i]=timebuf;

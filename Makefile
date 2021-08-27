@@ -3,7 +3,7 @@ BIN=cypercine
 
 
 all:
-	$(CC) src/main.c -std=c99 -o $(BIN)
+	$(CC) src/main.c -o $(BIN)
 
 
 install:
