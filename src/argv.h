@@ -1,12 +1,9 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
-int argv_set(char *args, char **argv);
-char **argv_parse(char *args, size_t *argc);
-void argv_free(char **argv);
-int argv_set(char *args, char **argv)
+size_t argv_set(char *args, char **argv)
 {
-  int count = 0;
+  size_t count = 0;
 
   while (isspace(*args)) ++args;
   while (*args) {
@@ -44,11 +41,11 @@ void argv_free(char **argv)
 }
 
 void quicksort(double *x,double first,double last){
-  int pivot, j, i;
+  size_t pivot, i, j;
   double temp;
 
   if(first<last){
-    pivot=first;
+    pivot=(size_t)first;
     i=first;
     j=last;
 

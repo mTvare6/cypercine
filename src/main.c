@@ -47,21 +47,21 @@ typedef struct {
 } command_t;
 
 
-const wchar_t FILLEDBLOCK=L'█';
-const wchar_t EMPTYBLOCK=L'░';
+static const wchar_t FILLEDBLOCK=L'█';
+static const wchar_t EMPTYBLOCK=L'░';
 const bool nostdout=true;
-struct winsize w;
-long times=0, iterations=1;
+static struct winsize w;
+static long times=0, iterations=1;
 
 void progress_bar(size_t i);
 void new_cmd(command_t *cmd, char *execstr);
-void handle_winch(int sig){
+void handle_winch(int _){
   ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
 }
 
 int main (int argc, char **argv){
 
-  if(argc<2){ printf("Usage: cyperfine 100 'ls -lAth'"); exit(0); }
+  if(argc<2){ puts("Usage: cypercine 100 'ls -lAth'"); exit(0); }
 
   if(setpgid(0,0)) {
     perror("failed to make proc group");
@@ -104,13 +104,12 @@ void new_cmd(command_t *cmd, char *execstr){
   tspec t1, t2;
 
   double timebuf;
-  pid_t pid;
   cmd->range = malloc(times * sizeof(*cmd->range));
 
   printf("%sBenchmark #%d%s, %s\n", Bold, 1, End, cmd->execstr);
 
   for(int i=0;i<times; i++){
-    pid = fork();
+    pid_t pid = fork();
     if(pid==-1) perror("fork()");
     else if(pid==0){
       if(nostdout){
@@ -140,7 +139,7 @@ void new_cmd(command_t *cmd, char *execstr){
       }
     } else {
         printf("command exited abnormally\n");
-        exit(0);
+        exit(1);
     }
       if(nostdout)
         progress_bar(i);
@@ -164,7 +163,7 @@ void new_cmd(command_t *cmd, char *execstr){
   cmd->mode=cmd->range[0];
   double next;
   size_t curcount=1, nextcount=0;
-  for(int i=0;i<times;i++){
+  for(size_t i=0;i<times;i++){
     if(cmd->range[i]==cmd->mode) curcount++;
     else if(cmd->range[i]==next) nextcount++;
     else next=cmd->range[i];
@@ -180,5 +179,7 @@ void new_cmd(command_t *cmd, char *execstr){
   printf("Time (%smean%s … %smode%s):\t%s%.2f%s … %s%.2f%s\n", LightGreen, End, DarkGreen, End, LightGreen,  (cmd->total/times)/1000, End, DarkGreen, cmd->mode/1000, End);
   printf("%*s", 2, "");
   printf("Range (%smin%s … %smax%s):\t%s%.2f%s … %s%.2f%s\n", LightMagenta, End, DarkMagenta, End, LightMagenta,  cmd->min/1000, End, DarkMagenta, cmd->max/1000, End);
+
+  iterations++;
 
 }
