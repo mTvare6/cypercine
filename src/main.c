@@ -10,6 +10,7 @@
 #include <wchar.h>
 #include <locale.h>
 #include <stdbool.h>
+#include <float.h>
 #include "argv.h"
 
 typedef struct timespec tspec;
@@ -72,8 +73,10 @@ int main (int argc, char **argv){
 
   char *endptr = NULL;
   times = strtol(argv[1], &endptr, 10);
+
   bool setnumber=true;
   if (argv[1] == endptr) setnumber=false;
+
 
   times=(times==0)?1:times;
 
@@ -82,9 +85,22 @@ int main (int argc, char **argv){
     ncom--;
 
   command_t commands[ncom];
+  double *min_ptr[ncom];
+  double *max_ptr[ncom];
 
   for(size_t i=0;i<ncom;i++){
-    new_cmd(&commands[iterations-1], argv[argc-iterations]);
+    new_cmd(&commands[i], argv[setnumber+i+1]);
+    min_ptr[i]=&commands[i].min;
+    max_ptr[i]=&commands[i].max;
+  }
+
+
+  if(ncom>1){
+    printf("\n%sSummary%s(%smean%s)\n  ", Bold, End, LightBlue, End);
+    for(size_t i=0;i<ncom;i++){
+      printf("%s%s%s%s: \t%s%.2f%s\n  ", Bold, DarkCyan, commands[i].execstr, End, LightBlue, (commands[i].total/times)/1000, End);
+    }
+    puts("");
   }
 
 
@@ -163,8 +179,8 @@ void new_cmd(command_t *cmd, char *execstr){
   printf("\r%*s\r", w.ws_col, "");
   argv_free(parsed_argv);
 
-  cmd->min=sizeof(double);
-  cmd->max=0;
+  cmd->min=DBL_MAX;
+  cmd->max=DBL_MIN;
 
   quicksort(cmd->range, 0, times-1);
   cmd->min=cmd->range[0];
