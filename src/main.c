@@ -61,7 +61,7 @@ void handle_winch(int _){
 
 int main (int argc, char **argv){
 
-  if(argc<2){ puts("Usage: cypercine 100 'ls -lAth'"); exit(0); }
+  if(argc<2){ puts("Usage:\n \tcypercine 100 'ls -lAth'\n\tcypercine 'exa' 'lsd' 'ls'\n\tcypercine 100000 'ls' 'lsd' 'exa'\n"); exit(0); }
 
   if(setpgid(0,0)) {
     perror("failed to make proc group");
@@ -70,12 +70,22 @@ int main (int argc, char **argv){
   ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
   signal(SIGWINCH, handle_winch);
 
-  times = strtol(argv[1], NULL, 10);
-  times=(times==0)?1:times; // if ascii string or 0, set to 1
+  char *endptr = NULL;
+  times = strtol(argv[1], &endptr, 10);
+  bool setnumber=true;
+  if (argv[1] == endptr) setnumber=false;
 
+  times=(times==0)?1:times;
 
-  command_t commands[1];
-  new_cmd(&commands[0], argv[argc-1]);
+  size_t ncom=argc-1;
+  if(setnumber)
+    ncom--;
+
+  command_t commands[ncom];
+
+  for(size_t i=0;i<ncom;i++){
+    new_cmd(&commands[iterations-1], argv[argc-iterations]);
+  }
 
 
   return 0;
@@ -106,7 +116,7 @@ void new_cmd(command_t *cmd, char *execstr){
   double timebuf;
   cmd->range = malloc(times * sizeof(*cmd->range));
 
-  printf("%sBenchmark #%d%s, %s\n", Bold, 1, End, cmd->execstr);
+  printf("%sBenchmark #%ld%s, %s\n", Bold, iterations, End, cmd->execstr);
 
   for(int i=0;i<times; i++){
     pid_t pid = fork();

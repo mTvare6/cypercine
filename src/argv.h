@@ -40,12 +40,13 @@ void argv_free(char **argv)
   } 
 }
 
+
 void quicksort(double *x,double first,double last){
-  size_t pivot, i, j;
+  int pivot, j, i;
   double temp;
 
   if(first<last){
-    pivot=(size_t)first;
+    pivot=first;
     i=first;
     j=last;
 
