@@ -85,13 +85,9 @@ int main (int argc, char **argv){
     ncom--;
 
   command_t commands[ncom];
-  double *min_ptr[ncom];
-  double *max_ptr[ncom];
 
   for(size_t i=0;i<ncom;i++){
     new_cmd(&commands[i], argv[setnumber+i+1]);
-    min_ptr[i]=&commands[i].min;
-    max_ptr[i]=&commands[i].max;
   }
 
 
