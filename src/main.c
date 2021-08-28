@@ -1,4 +1,3 @@
-#include <stddef.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <stdlib.h>
@@ -99,6 +98,9 @@ int main (int argc, char **argv){
     puts("");
   }
 
+  for(size_t i=0;i<ncom;i++)
+    free(commands[i].range);
+
 
   return 0;
 }
@@ -196,10 +198,8 @@ void new_cmd(command_t *cmd, char *execstr){
     }
   }
 
-  printf("Took %s%.2f%s ms\n", DarkCyan, (cmd->total/1000), End);
-  printf("%*s", 2, "");
-  printf("Time (%smean%s … %smode%s):\t%s%.2f%s … %s%.2f%s\n", LightGreen, End, DarkGreen, End, LightGreen,  (cmd->total/times)/1000, End, DarkGreen, cmd->mode/1000, End);
-  printf("%*s", 2, "");
+  printf("Took %s%.2f%s ms\n  ", DarkCyan, (cmd->total/1000), End);
+  printf("Time (%smean%s … %smode%s):\t%s%.2f%s … %s%.2f%s\n  ", LightGreen, End, DarkGreen, End, LightGreen,  (cmd->total/times)/1000, End, DarkGreen, cmd->mode/1000, End);
   printf("Range (%smin%s … %smax%s):\t%s%.2f%s … %s%.2f%s\n", LightMagenta, End, DarkMagenta, End, LightMagenta,  cmd->min/1000, End, DarkMagenta, cmd->max/1000, End);
 
   iterations++;
