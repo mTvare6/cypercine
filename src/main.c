@@ -125,6 +125,11 @@ void progress_bar(size_t i){
 void new_cmd(command_t *cmd, char *execstr){
   cmd->execstr = execstr;
   char **parsed_argv = argv_parse(cmd->execstr, &cmd->limit);
+  char *null_argv[cmd->limit+1];
+  for(int o=0;o<cmd->limit;o++){
+    null_argv[o] = parsed_argv[o];
+  }
+  null_argv[cmd->limit] = NULL;
   tspec t1, t2;
 
   double timebuf;
@@ -140,12 +145,7 @@ void new_cmd(command_t *cmd, char *execstr){
         close(STDOUT_FILENO);
         close(STDERR_FILENO);
       }
-      if(cmd->limit!=1){
-        execvp(parsed_argv[0], parsed_argv);
-      }
-      else{
-        execlp(parsed_argv[0], parsed_argv[0], NULL);
-      }
+      execvp(parsed_argv[0], null_argv);
       perror("exec failed");
       exit(1);
     }
