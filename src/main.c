@@ -5,7 +5,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <errno.h>
 #include <wchar.h>
 #include <locale.h>
 #include <stdbool.h>
@@ -62,6 +61,7 @@ void handle_winch(int _){
 int main (int argc, char **argv){
 
   if(argc<2){ puts("Usage:\n \tcypercine 100 'ls -lAth'\n\tcypercine 'exa' 'lsd' 'ls'\n\tcypercine 100000 'ls' 'lsd' 'exa'\n"); exit(0); }
+setlocale(LC_CTYPE, "en_GB.UTF-8");
 
   if(setpgid(0,0)) {
     perror("failed to make proc group");
