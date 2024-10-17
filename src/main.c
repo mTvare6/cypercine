@@ -4,14 +4,14 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <string.h>
-#include <time.h>
 #include <locale.h>
 #include <stdbool.h>
 #include <float.h>
 #include <signal.h>
+#include <stdint.h>
+#include <cpuid.h>
+#include <x86intrin.h>
 #include "argv.h"
-
-typedef struct timespec tspec;
 
 #define End          "\033[0;0m"
 #define Bold         "\033[1m"
@@ -53,6 +53,24 @@ static long times=0, iterations=1;
 
 void progress_bar(size_t i);
 void new_cmd(command_t *cmd, char *execstr);
+
+static uint64_t read_tsc(void){
+  unsigned int aux;
+  _mm_lfence();
+  uint64_t cycles = __rdtscp(&aux);
+  _mm_lfence();
+  return cycles;
+}
+
+static double tsc_frequency(void){
+  unsigned int denominator, numerator, crystal_hz, unused;
+  if(__get_cpuid_count(0x15, 0, &denominator, &numerator, &crystal_hz, &unused) && denominator && numerator && crystal_hz)
+    return (double)crystal_hz * numerator / denominator;
+
+  fputs("Can't find TSC frequency\n", stderr);
+  exit(1);
+}
+
 void handle_winch(int _){
   ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
 }
@@ -126,7 +144,8 @@ void new_cmd(command_t *cmd, char *execstr){
     null_argv[o] = parsed_argv[o];
   }
   null_argv[cmd->limit] = NULL;
-  tspec t1, t2;
+  uint64_t t1, t2;
+  double tsc_hz = tsc_frequency();
 
   double timebuf;
   cmd->range = malloc(times * sizeof(*cmd->range));
@@ -147,7 +166,7 @@ void new_cmd(command_t *cmd, char *execstr){
     }
     else{
       int stat;
-      clock_gettime(CLOCK_REALTIME, &t1);
+      t1 = read_tsc();
       if(waitpid(pid, &stat, 0)<0){
         perror("Unable to wait for proc");
         exit(1);
@@ -163,8 +182,8 @@ void new_cmd(command_t *cmd, char *execstr){
       }
       if(nostdout)
         progress_bar(i);
-      clock_gettime(CLOCK_REALTIME, &t2);
-      timebuf = (t2.tv_sec - t1.tv_sec) * 1e6 + (t2.tv_nsec - t1.tv_nsec) / 1e3;
+      t2 = read_tsc();
+      timebuf = (t2 - t1) * 1e6 / tsc_hz;
       cmd->range[i]=timebuf;
       cmd->total+=timebuf;
     }
