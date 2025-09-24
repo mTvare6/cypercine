@@ -5,14 +5,13 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <wchar.h>
 #include <locale.h>
 #include <stdbool.h>
 #include <float.h>
+#include <signal.h>
 #include "argv.h"
 
 typedef struct timespec tspec;
-
 
 #define End          "\033[0;0m"
 #define Bold         "\033[1m"
@@ -45,9 +44,10 @@ typedef struct {
   double min, max, mode, total;
 } command_t;
 
+/* Use UTF-8 bytes in narrow I/O (avoid mixing wide and narrow stdio) */
+static const char *FILLEDBLOCK = "\xE2\x96\x88"; /* U+2588 FULL BLOCK "█" */
+static const char *EMPTYBLOCK  = "\xE2\x96\x91"; /* U+2591 LIGHT SHADE "░" */
 
-static const wchar_t FILLEDBLOCK=L'█';
-static const wchar_t EMPTYBLOCK=L'░';
 const bool nostdout=true;
 static struct winsize w;
 static long times=0, iterations=1;
@@ -59,14 +59,18 @@ void handle_winch(int _){
 }
 
 int main (int argc, char **argv){
+  if(argc<2){
+    puts("Usage:\n \tcypercine 100 'ls -lAth'\n\tcypercine 'exa' 'lsd' 'ls'\n\tcypercine 100000 'ls' 'lsd' 'exa'\n");
+    exit(0);
+  }
 
-  if(argc<2){ puts("Usage:\n \tcypercine 100 'ls -lAth'\n\tcypercine 'exa' 'lsd' 'ls'\n\tcypercine 100000 'ls' 'lsd' 'exa'\n"); exit(0); }
-setlocale(LC_CTYPE, "en_GB.UTF-8");
+  /* Ensure UTF-8 so block characters render properly */
+  setlocale(LC_ALL, "");
 
   if(setpgid(0,0)) {
     perror("failed to make proc group");
   }
-  setlocale(LC_ALL, ""); // progress bar unicode 
+
   ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
   signal(SIGWINCH, handle_winch);
 
@@ -75,7 +79,6 @@ setlocale(LC_CTYPE, "en_GB.UTF-8");
 
   bool setnumber=true;
   if (argv[1] == endptr) setnumber=false;
-
 
   times=(times==0)?1:times;
 
@@ -89,7 +92,6 @@ setlocale(LC_CTYPE, "en_GB.UTF-8");
     new_cmd(&commands[i], argv[setnumber+i+1]);
   }
 
-
   if(ncom>1){
     printf("\n%sSummary%s(%smean%s)\n  ", Bold, End, LightBlue, End);
     for(size_t i=0;i<ncom;i++){
@@ -101,26 +103,22 @@ setlocale(LC_CTYPE, "en_GB.UTF-8");
   for(size_t i=0;i<ncom;i++)
     free(commands[i].range);
 
-
   return 0;
 }
 
-
-
-
 void progress_bar(size_t i){
-  putchar('\r');
-  fflush(stdout);
-  i+=1;
-  long tsa=(((double)i/times))*w.ws_col;
-  for(i=0;i<tsa;i++){
-    putwchar(FILLEDBLOCK);
-  }
-  for(i=tsa;i<w.ws_col;i++){
-    putwchar(EMPTYBLOCK);
-  }
-}
+  if (!isatty(STDOUT_FILENO)) return; /* only render on a TTY */
+  fputs("\r", stdout);
+  i += 1;
+  long filled = (long)(((double)i / (double)times) * (double)w.ws_col);
+  if (filled < 0) filled = 0;
+  if (filled > (long)w.ws_col) filled = w.ws_col;
 
+  for (long k = 0; k < filled; ++k) fputs(FILLEDBLOCK, stdout);
+  for (long k = filled; k < (long)w.ws_col; ++k) fputs(EMPTYBLOCK, stdout);
+
+  fflush(stdout);
+}
 
 void new_cmd(command_t *cmd, char *execstr){
   cmd->execstr = execstr;
@@ -156,15 +154,15 @@ void new_cmd(command_t *cmd, char *execstr){
         perror("Unable to wait for proc");
         exit(1);
       }
-    if (WIFEXITED(stat)) {
-      if(WEXITSTATUS(stat)!=0){
-        printf("%s: exited with status %d", cmd->execstr, WEXITSTATUS(stat));
-        exit(1);
-      }
-    } else {
+      if (WIFEXITED(stat)) {
+        if(WEXITSTATUS(stat)!=0){
+          printf("%s: exited with status %d", cmd->execstr, WEXITSTATUS(stat));
+          exit(1);
+        }
+      } else {
         printf("command exited abnormally\n");
         exit(1);
-    }
+      }
       if(nostdout)
         progress_bar(i);
       clock_gettime(CLOCK_REALTIME, &t2);
@@ -174,7 +172,10 @@ void new_cmd(command_t *cmd, char *execstr){
     }
   }
 
-  printf("\r%*s\r", w.ws_col, "");
+  /* Clear the progress line reliably */
+  fputs("\033[2K\r", stdout);
+  fflush(stdout);
+
   argv_free(parsed_argv);
 
   cmd->min=DBL_MAX;
@@ -203,5 +204,4 @@ void new_cmd(command_t *cmd, char *execstr){
   printf("Range (%smin%s … %smax%s):\t%s%.2f%s … %s%.2f%s\n", LightMagenta, End, DarkMagenta, End, LightMagenta,  cmd->min/1000, End, DarkMagenta, cmd->max/1000, End);
 
   iterations++;
-
 }
